@@ -106,37 +106,45 @@ An example nginx configuration could look something like the following. Please n
     }
 
     server {
-            listen 80;
-            listen [::]:80;
+        listen 80;
+        listen [::]:80;
 
-            server_name <domainname>;
+        server_name <domainname>;
 
-            root /srv/http/<domainname>/;
-            index index.xhtml index.html;
+        root /srv/http/<domainname>/;
+        index index.xhtml index.html;
 
-            location /.well-known/acme-challenge {}
+        location /.well-known/acme-challenge {}
 
-            location / {
-                    return 308 https://$host$request_uri;
-            }
+        location / {
+                return 308 https://$host$request_uri;
+        }
     }
 
     server {
-            listen 443 ssl http2;
-            listen [::]:443 ssl http2;
+        listen 443 ssl http2;
+        listen [::]:443 ssl http2;
 
-            ssl_certificate         /etc/letsencrypt/live/<domainname>/fullchain.pem;
-            ssl_certificate_key     /etc/letsencrypt/live/<domainname>/privkey.pem;
+        ssl_certificate         /etc/letsencrypt/live/<domainname>/fullchain.pem;
+        ssl_certificate_key     /etc/letsencrypt/live/<domainname>/privkey.pem;
 
-            server_name <domainname>;
+        server_name <domainname>;
 
-            root /srv/http/<domainname>/;
-            index index.xhtml index.html;
+        root /srv/http/<domainname>/;
+        index index.xhtml index.html;
 
-            location / {
-                    proxy_pass http://dyndns;
-            }
+        location / {
+                proxy_pass http://dyndns;
+        }
     }
+
+You probably can place this configuration into **/etc/nginx/sites-available/** and then link it into **/etc/nginx/sites-enabled/** using
+
+    ln -s /etc/nginx/sites-available/nginx-dyndns.conf /etc/nginx/sites-enabled/
+
+. After confirming that everything works using ```nginx -t```, you can reload nginx with
+
+    systemctl reload nginx
 
 Please consult the nginx documentation as well as Let's Encrypt for more information;
 this is only a hint and a start, but no full explanation.
