@@ -85,6 +85,9 @@ If you want to generate a binary you can upload to a server which does not have 
 you can run ```cargo build --release```. This will generate the executable **target/release/dyndns**.
 You can simply upload this binary to a server an run it there.
 
+You can also install this server using ```cargo install dyndns```. This will then install the built binary
+inside the cargo bin folder (by default, this will be **$HOME/.cargo/**).
+
 ## Running behind a reverse proxy like nginx
 
 For security reasons, it is **not recommended** to run this server without TLS encryption/HTTPS,
