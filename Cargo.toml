@@ -3,6 +3,14 @@ name = "dyndns"
 version = "0.1.0"
 edition = "2021"
 license = "AGPL-3.0-or-later"
+authors = ["Benedikt Bastin"]
+description = "A simple DynDNS server to update Hetzner DNS records with your dynamic IP address assigned by your Internet Service Provider (ISP)."
+readme = "README.md"
+homepage = "https://github.com/bbastin/dyndns"
+repository = "https://github.com/bbastin/dyndns"
+documentation = "https://github.com/bbastin/dyndns"
+keywords = ["dns"]
+categories = ["network-programming"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
