@@ -1,0 +1,4 @@
+[default]
+address = "127.0.0.1"
+port = 8079
+workers = 1

@@ -13,6 +13,8 @@ Still, this project is not thoroughly vetted. I am no Rust expert, but of course
 
 This server is not stable right now. Almost everything that can fail will lead to a panic, as the error handling is fairly primitive. Still, it works, at least for me, and errors that I encounter will probably be fixed rather shortly, at least if I have the time.
 
+You can find all config files from within this **README.md** file in the **example-config** folder.
+
 ## Configuring your Fritzbox
 
 If you want to enable your Fritzbox to use your DynDNS server,
@@ -141,4 +143,48 @@ this is only a hint and a start, but no full explanation.
 
 ## Integrating with systemd
 
-Information on integrating the server with your own systemd unit will follow.
+Usually, you would want to integrate the server with systemd
+in order to keep it running and start it automatically on boot.
+Below you can find an example service unit which you can install
+on your system at **/etc/systemd/system/dyndns.service**.
+
+This tutorial assumes you are running both systemd and journald. For other init and/or logging services, you have to consult their respective documentations.
+Please consult the systemd documentation as well as for more information;
+this is only a hint and a start, but no full explanation.
+
+    [Unit]
+    Description=DynDNS server
+    After=syslog.target
+    After=network.target
+
+    [Service]
+    Type=simple
+    User=www-data
+    Group=www-data
+    WorkingDirectory=/srv/dyndns
+    ExecStart=/srv/dyndns/dyndns
+
+    [Install]
+    WantedBy=multi-user.target
+
+After installing the file
+(and making sure that both *WorkingDirectory* and *ExecStart* point to the correct location)
+you then have to make sure systemd knows about this unit by running
+
+    systemctl daemon-reload
+
+. Afterwards, you can start the server with
+
+    systemctl start dyndns
+
+and stop it with
+
+    systemctl stop dyndns
+
+. If you want the service to be started automatically on boot, you can enable it using
+
+    systemctl enable dyndns
+
+. If you need to access the logs, you can use journald:
+
+    journalctl -u dyndns

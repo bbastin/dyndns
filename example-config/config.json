@@ -1,0 +1,13 @@
+{
+    "name": "exampleuser",
+    "password": "exampleuserpassword",
+    "domains": [{
+        "provider": "HetznerProvider",
+        "apitoken": "aiodQ83HFSDIj3iAHfOIAIAOWUR",
+        "host": "test.example.com",
+        "zone": {
+            "name": "example.com",
+            "id": "notused"
+        }
+    }]
+}

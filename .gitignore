@@ -1,2 +1,3 @@
 /target
 config.json
+!example-config/config.json

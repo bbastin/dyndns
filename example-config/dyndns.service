@@ -1,0 +1,14 @@
+[Unit]
+Description=DynDNS server
+After=syslog.target
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/dyndns
+ExecStart=/srv/dyndns/dyndns
+
+[Install]
+WantedBy=multi-user.target
