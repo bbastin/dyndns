@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 Benedikt Bastin
+#
+# SPDX-License-Identifier: CC0-1.0
+
 # EditorConfig is awesome: https://EditorConfig.org
 
 # top-most EditorConfig file
@@ -16,3 +20,4 @@ trim_trailing_whitespace = false
 
 [*.yml]
 indent_size = 2
+

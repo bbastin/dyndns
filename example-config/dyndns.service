@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 Benedikt Bastin
+#
+# SPDX-License-Identifier: CC0-1.0
+
 [Unit]
 Description=DynDNS server
 After=syslog.target

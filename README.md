@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2023 Benedikt Bastin
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # DynDNS
 
 This is a simple DynDNS server. If you run this server, it allows you to update DNS records with your dynamic
