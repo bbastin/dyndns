@@ -144,13 +144,7 @@ async fn update(
 
 // #[launch]
 pub fn rocket() -> rocket::Rocket<rocket::Build> {
-    let rocket_config = rocket::Config {
-        log_level: rocket::config::LogLevel::Critical,
-        ..Default::default()
-    };
-
     rocket::build()
-        .configure(rocket_config)
         .mount("/", routes![update])
 }
 
