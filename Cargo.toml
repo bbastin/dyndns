@@ -4,7 +4,7 @@
 
 [package]
 name = "dyndns"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "AGPL-3.0-or-later"
 authors = ["Benedikt Bastin"]
@@ -21,6 +21,7 @@ categories = ["network-programming"]
 [dependencies]
 futures = "0.3.*"
 log = "0.4.*"
+mockall = "0.12.0"
 reqwest = { version = "0.11.*", features = ["json"]}
 rocket = "0.5.*"
 serde = { version = "1.*", features = ["serde_derive"]}

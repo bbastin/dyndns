@@ -7,14 +7,13 @@ use std::{
     convert::Infallible,
     error::Error,
     fmt::{self},
-    str::FromStr,
 };
 
 use futures::executor::block_on;
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use crate::config::Zone;
+use crate::config::{DomainConfig, Zone};
 
 #[derive(Deserialize)]
 struct Zones {
@@ -75,15 +74,14 @@ struct ResponseRecord {
     record: Record,
 }
 
+#[derive(Default)]
 pub struct HetznerProvider {
-    apitoken: String,
     client: reqwest::Client,
 }
 
 impl HetznerProvider {
-    pub fn new(apitoken: &str) -> HetznerProvider {
+    pub fn new() -> HetznerProvider {
         let p = HetznerProvider {
-            apitoken: String::from_str(apitoken).unwrap(),
             client: reqwest::Client::new(),
         };
         info!("Created new Hetzner Provider");
@@ -91,11 +89,11 @@ impl HetznerProvider {
         p
     }
 
-    pub async fn get_zones(&self) -> Result<Vec<Zone>, Infallible> {
+    pub async fn get_zones(&self, apitoken: &str) -> Result<Vec<Zone>, Infallible> {
         let response = self
             .client
             .get("https://dns.hetzner.com/api/v1/zones")
-            .header("Auth-API-Token", &self.apitoken)
+            .header("Auth-API-Token", apitoken)
             .send()
             .await
             .unwrap();
@@ -111,12 +109,16 @@ impl HetznerProvider {
     //     Err(0)
     // }
 
-    pub async fn get_records(&self, zone: &Zone) -> Result<Vec<Record>, Infallible> {
+    pub async fn get_records(
+        &self,
+        apitoken: &str,
+        zone: &Zone,
+    ) -> Result<Vec<Record>, Infallible> {
         let response = self
             .client
             .get("https://dns.hetzner.com/api/v1/records")
             .query(&[("zone_id", zone.id.as_str())])
-            .header("Auth-API-Token", &self.apitoken)
+            .header("Auth-API-Token", apitoken)
             .send()
             .await
             .unwrap();
@@ -128,14 +130,18 @@ impl HetznerProvider {
         Ok(records)
     }
 
-    pub async fn update_record(&self, record: &Record) -> Result<Record, Infallible> {
+    pub async fn update_record(
+        &self,
+        apitoken: &str,
+        record: &Record,
+    ) -> Result<Record, Infallible> {
         let response = self
             .client
             .put(format!(
                 "https://dns.hetzner.com/api/v1/records/{}",
                 record.id
             ))
-            .header("Auth-API-Token", &self.apitoken)
+            .header("Auth-API-Token", apitoken)
             .json(record)
             .send()
             .await
@@ -152,18 +158,20 @@ impl HetznerProvider {
 impl super::Provider for HetznerProvider {
     fn update_ip(
         &self,
-        domain: String,
-        zone: Zone,
+        domain_config: &DomainConfig,
         new_ip: std::net::IpAddr,
     ) -> Result<bool, Box<dyn Error>> {
         // Split domain into subdomain and zone (if applicable)
-        let update_record_name = match domain.strip_suffix(zone.name.as_str()) {
+        let update_record_name = match domain_config
+            .host
+            .strip_suffix(domain_config.zone.name.as_str())
+        {
             // Strip last remaining dot from subdomain
             Some(subdomain) => &subdomain[0..subdomain.len() - 1],
             None => {
                 // If domain and zone name are the same, use the whole domain,
                 // which is denoted by @ in DNS
-                assert_eq!(domain, zone.name);
+                assert_eq!(domain_config.host, domain_config.zone.name);
                 "@"
             }
         };
@@ -177,13 +185,16 @@ impl super::Provider for HetznerProvider {
 
         info!(
             "Updating \"{}\" record of type {} in zone {} (ID: {})",
-            domain, update_record_type, zone.name, zone.id
+            domain_config.host, update_record_type, domain_config.zone.name, domain_config.zone.id
         );
 
         tokio::task::block_in_place(|| {
             block_on(async move {
                 // Get all records of specified zone
-                let records = self.get_records(&zone).await.unwrap();
+                let records = self
+                    .get_records(&domain_config.apitoken, &domain_config.zone)
+                    .await
+                    .unwrap();
 
                 // Find the record with matching type and name
                 let record = records
@@ -200,7 +211,10 @@ impl super::Provider for HetznerProvider {
                 if record.value == new_ip.to_string() {
                     info!(
                         "Record \"{}\" of type {} in zone {} (ID: {}) does not need to be updated",
-                        update_record_name, update_record_type, zone.name, zone.id
+                        update_record_name,
+                        update_record_type,
+                        domain_config.zone.name,
+                        domain_config.zone.id
                     );
                     return Ok(false);
                 }
@@ -212,7 +226,9 @@ impl super::Provider for HetznerProvider {
                 };
 
                 // Update the record
-                let _ = self.update_record(&new_record).await;
+                let _ = self
+                    .update_record(&domain_config.apitoken, &new_record)
+                    .await;
 
                 Ok(true)
             })

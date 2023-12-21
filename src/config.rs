@@ -4,9 +4,12 @@
 
 use serde::Deserialize;
 
+use crate::providers::{hetzner::HetznerProvider, MockProvider};
+
 #[derive(PartialEq, Eq, Deserialize, strum_macros::Display, Clone, Copy)]
 pub enum ProviderType {
     HetznerProvider,
+    MockProvider,
 }
 
 #[derive(Deserialize, Clone)]
@@ -33,6 +36,11 @@ pub struct User {
 #[derive(Deserialize, Clone)]
 pub struct Config {
     pub users: Vec<User>,
+}
+
+pub struct Providers {
+    pub hetzner_provider: Option<HetznerProvider>,
+    pub mock_provider: Option<MockProvider>,
 }
 
 #[cfg(test)]

@@ -10,7 +10,9 @@ use std::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
 };
 
-use crate::config::{DomainConfig, Zone};
+use mockall::automock;
+
+use crate::config::DomainConfig;
 
 pub mod hetzner;
 
@@ -25,9 +27,13 @@ impl Display for RecordNotFoundError {
     }
 }
 
+#[automock]
 pub trait Provider {
-    fn update_ip(&self, domain: String, zone: Zone, new_ip: IpAddr)
-        -> Result<bool, Box<dyn Error>>;
+    fn update_ip(
+        &self,
+        domain_config: &DomainConfig,
+        new_ip: IpAddr,
+    ) -> Result<bool, Box<dyn Error>>;
 }
 
 pub fn update_ipv4(
@@ -35,11 +41,7 @@ pub fn update_ipv4(
     new_ip: &Ipv4Addr,
     domain_config: &DomainConfig,
 ) -> Result<String, String> {
-    let updated = provider.update_ip(
-        domain_config.host.to_string(),
-        domain_config.zone.clone(),
-        IpAddr::V4(*new_ip),
-    );
+    let updated = provider.update_ip(domain_config, IpAddr::V4(*new_ip));
 
     match updated {
         Ok(u) => match u {
@@ -55,11 +57,7 @@ pub fn update_ipv6(
     new_ip: &Ipv6Addr,
     domain_config: &DomainConfig,
 ) -> Result<String, String> {
-    let updated = provider.update_ip(
-        domain_config.host.to_string(),
-        domain_config.zone.clone(),
-        IpAddr::V6(*new_ip),
-    );
+    let updated = provider.update_ip(domain_config, IpAddr::V6(*new_ip));
 
     match updated {
         Ok(u) => match u {
