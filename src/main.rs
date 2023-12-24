@@ -31,7 +31,7 @@ pub async fn main() -> Result<(), rocket::Error> {
 
     let config = match load_config() {
         Ok(user) => Config { users: vec![user] },
-        Err(error) => panic!("Error reading config: {}", error),
+        Err(error) => panic!("Error reading config: {error}"),
     };
 
     let providers = Providers {

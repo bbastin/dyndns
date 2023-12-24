@@ -17,7 +17,7 @@ use crate::config::DomainConfig;
 pub mod hetzner;
 
 #[derive(Debug)]
-pub struct RecordNotFoundError {}
+pub struct RecordNotFoundError;
 
 impl Error for RecordNotFoundError {}
 
@@ -44,11 +44,14 @@ pub fn update_ipv4(
     let updated = provider.update_ip(domain_config, IpAddr::V4(*new_ip));
 
     match updated {
-        Ok(u) => match u {
-            true => Ok("Updated IPv4 successfully".to_string()),
-            false => Ok("IPv4 already set correctly".to_string()),
-        },
-        Err(e) => Err(format!("Error: {}", e)),
+        Ok(update_status) => {
+            if update_status {
+                Ok("Updated IPv4 successfully".to_string())
+            } else {
+                Ok("IPv4 already set correctly".to_string())
+            }
+        }
+        Err(error) => Err(format!("Error: {error}")),
     }
 }
 
@@ -60,10 +63,13 @@ pub fn update_ipv6(
     let updated = provider.update_ip(domain_config, IpAddr::V6(*new_ip));
 
     match updated {
-        Ok(u) => match u {
-            true => Ok("Updated IPv6 successfully".to_string()),
-            false => Ok("IPv6 already set correctly".to_string()),
-        },
-        Err(e) => Err(format!("Error: {}", e)),
+        Ok(update_status) => {
+            if update_status {
+                Ok("Updated IPv6 successfully".to_string())
+            } else {
+                Ok("IPv6 already set correctly".to_string())
+            }
+        }
+        Err(error) => Err(format!("Error: {error}")),
     }
 }

@@ -5,6 +5,7 @@
 #![deny(clippy::all)]
 
 use std::{
+    fmt::Write,
     net::{Ipv4Addr, Ipv6Addr},
     str::FromStr,
 };
@@ -19,13 +20,13 @@ use crate::{
 
 fn get_user<'user_config_lifetime>(
     config: &'user_config_lifetime Config,
-    user: &str,
+    username: &str,
     password: &str,
 ) -> Result<&'user_config_lifetime User, ()> {
-    let user_config = config.users.iter().find(|u| u.name == user);
+    let user_config = config.users.iter().find(|u| u.name == username);
 
     if user_config.is_none() {
-        warn!("Invalid user {}", user);
+        warn!("Invalid user {}", username);
         return Err(());
     }
     let user = user_config.unwrap();
@@ -45,14 +46,14 @@ fn get_domain_config<'user_config_lifetime>(
     let domain_config = user.domains.iter().find(|d| d.host == host);
 
     if domain_config.is_none() {
-        warn!("Invalid domain {} for user {}", host, user.name);
+        warn!("Invalid domain {host} for user {}", user.name);
         return Err(());
     }
     Ok(domain_config.unwrap())
 }
 
 #[get("/update?<user>&<password>&<host>&<ip>&<ip6>")]
-async fn update(
+fn update(
     user: &str,
     password: &str,
     host: &str,
@@ -84,37 +85,39 @@ async fn update(
         ip6.unwrap_or("<empty>")
     );
 
-    let parsed_ipv4 = match ip.is_some_and(|s| !s.is_empty()) {
-        true => match Ipv4Addr::from_str(ip.unwrap()) {
+    let parsed_ipv4 = if ip.is_some_and(|s| !s.is_empty()) {
+        match Ipv4Addr::from_str(ip.unwrap()) {
             Ok(i) => Some(i),
             Err(_) => return (Status::BadRequest, "Invalid IPv4 address".to_string()),
-        },
-        false => None,
+        }
+    } else {
+        None
     };
 
-    let parsed_ipv6 = match ip6.is_some_and(|s| !s.is_empty()) {
-        true => match Ipv6Addr::from_str(ip6.unwrap()) {
+    let parsed_ipv6 = if ip6.is_some_and(|s| !s.is_empty()) {
+        match Ipv6Addr::from_str(ip6.unwrap()) {
             Ok(i) => Some(i),
             Err(_) => return (Status::BadRequest, "Invalid IPv6 address".to_string()),
-        },
-        false => None,
+        }
+    } else {
+        None
     };
 
     let mut status_code = Status::Ok;
-    let mut response: String = Default::default();
+    let mut response: String = String::default();
 
     if parsed_ipv4.is_some() {
         let res = update_ipv4(p, &parsed_ipv4.unwrap(), domain_config);
 
         match res {
             Ok(s) => {
-                response += &format!("{}\n", s).to_string();
-                info!("{}", s);
+                let _ = writeln!(response, "{s}");
+                info!("{s}");
             }
             Err(e) => {
-                response += &format!("Error updating IPv4 address: {}\n", e).to_string();
+                let _ = writeln!(response, "Error updating IPv4 address: {e}");
                 status_code = Status::InternalServerError;
-                error!("{}", e);
+                error!("{e}");
             }
         }
     }
@@ -124,13 +127,13 @@ async fn update(
 
         match res {
             Ok(s) => {
-                response += &format!("{}\n", s).to_string();
-                info!("{}", s);
+                let _ = writeln!(response, "{s}");
+                info!("{s}");
             }
             Err(e) => {
-                response += &format!("Error updating IPv6 address: {}\n", e).to_string();
+                let _ = writeln!(response, "Error updating IPv6 address: {e}");
                 status_code = Status::InternalServerError;
-                error!("{}", e);
+                error!("{e}");
             }
         }
     }
@@ -144,8 +147,7 @@ async fn update(
 
 // #[launch]
 pub fn rocket() -> rocket::Rocket<rocket::Build> {
-    rocket::build()
-        .mount("/", routes![update])
+    rocket::build().mount("/", routes![update])
 }
 
 #[cfg(test)]

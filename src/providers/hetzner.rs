@@ -21,6 +21,7 @@ struct Zones {
 }
 
 #[derive(PartialEq, Eq, Deserialize, Serialize, strum_macros::Display)]
+#[allow(clippy::min_ident_chars)]
 pub enum RecordType {
     A,
     AAAA,
@@ -80,6 +81,7 @@ pub struct HetznerProvider {
 }
 
 impl HetznerProvider {
+    #[must_use]
     pub fn new() -> HetznerProvider {
         let p = HetznerProvider {
             client: reqwest::Client::new(),
@@ -162,18 +164,15 @@ impl super::Provider for HetznerProvider {
         new_ip: std::net::IpAddr,
     ) -> Result<bool, Box<dyn Error>> {
         // Split domain into subdomain and zone (if applicable)
-        let update_record_name = match domain_config
+        let update_record_name = if let Some(subdomain) = domain_config
             .host
             .strip_suffix(domain_config.zone.name.as_str())
         {
             // Strip last remaining dot from subdomain
-            Some(subdomain) => &subdomain[0..subdomain.len() - 1],
-            None => {
-                // If domain and zone name are the same, use the whole domain,
-                // which is denoted by @ in DNS
-                assert_eq!(domain_config.host, domain_config.zone.name);
-                "@"
-            }
+            subdomain.strip_suffix('.').unwrap_or(subdomain)
+        } else {
+            // Use the whole domain, which is denoted by @ in DNS
+            "@"
         };
 
         // Determine type of record to update (A for IPv4 or AAAA for IPv6)
@@ -202,17 +201,14 @@ impl super::Provider for HetznerProvider {
                     .find(|r| r.name == update_record_name && r.record_type == update_record_type)
                     .unwrap_or_else(|| {
                         panic!(
-                            "No matching record (name: {}, type: {})",
-                            update_record_name, update_record_type
+                            "No matching record (name: {update_record_name}, type: {update_record_type})"
                         )
                     });
 
                 // If the value is already correct, skip the update
                 if record.value == new_ip.to_string() {
                     info!(
-                        "Record \"{}\" of type {} in zone {} (ID: {}) does not need to be updated",
-                        update_record_name,
-                        update_record_type,
+                        "Record \"{update_record_name}\" of type {update_record_type} in zone {} (ID: {}) does not need to be updated",
                         domain_config.zone.name,
                         domain_config.zone.id
                     );
