@@ -30,4 +30,3 @@ simple_logger = "4.*"
 strum = { version = "0.25.*", features = ["derive"] }
 strum_macros = "0.25.*"
 tokio = { version = "1.*", features = ["full"]}
-
