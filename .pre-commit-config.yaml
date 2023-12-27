@@ -20,6 +20,13 @@ repos:
     hooks:
       - id: reuse
 
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+     - id: fmt
+     - id: cargo-check
+     - id: clippy
+
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v3.0.0
     hooks:
