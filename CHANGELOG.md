@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.6] - 2024-11-29
 
+### <!-- 1 -->Added
+
+- Add git cliff for changelog generation
+
+### <!-- 2 -->Changed
+
+- Convert .dep5 file to REUSE.toml
+
 ### <!-- 4 -->Removed
 
 - Remove unnecessary features and update dependencies
