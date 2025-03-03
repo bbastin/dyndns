@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.8] - 2025-03-03
+
+### <!-- 2 -->Changed
+
+- Update changelog
+
+### <!-- 5 -->Fixed
+
+- Restore HTTPS support for Hetzner provider
+
 ## [0.3.7] - 2025-02-21
 
 ### <!-- 1 -->Added
@@ -109,6 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Clarified nginx configuration
 
+[0.3.8]: https://github.com/bbastin/dyndns/compare/v0.3.7..v0.3.8
 [0.3.7]: https://github.com/bbastin/dyndns/compare/v0.3.6..v0.3.7
 [0.3.6]: https://github.com/bbastin/dyndns/compare/v0.3.5..v0.3.6
 [0.3.4]: https://github.com/bbastin/dyndns/compare/v0.3.3..v0.3.4
