@@ -21,6 +21,8 @@ allow = [
     "AGPL-3.0",
     "BSD-3-Clause",
     "Unicode-3.0",
+    "ISC",
+    "CDLA-Permissive-2.0"
 ]
 confidence-threshold = 0.8
 exceptions = []
