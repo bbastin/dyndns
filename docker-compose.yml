@@ -1,0 +1,8 @@
+services:
+  dyndns:
+    build: .
+    ports:
+      - "8079:8079"
+    volumes:
+      - ./example-config/config.json:/app/config.json
+      - ./example-config/Rocket.toml:/app/Rocket.toml
