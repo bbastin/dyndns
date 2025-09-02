@@ -54,6 +54,8 @@ You can either use the domain itself or a subdomain.
 You can set your username and password yourself;
 those are only required to assure that you do not accept any IP address.
 Within the domains section, you can configure domains that you want to update.
+dyndns looks for **config.json** in the current working directory (usually the directory where the binary is stored),
+and if it does not find it there, it will look for it at **/etc/dyndns/config.json**.
 
 With the HetznerProvider, you set the value of *provider* to "HetznerProvider",
 then enter your API token from the step before as *apitoken*.
