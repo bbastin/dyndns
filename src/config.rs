@@ -2,94 +2,147 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
+use std::net::Ipv6Addr;
 
-use crate::providers::{hetzner::HetznerProvider, MockProvider};
-
-#[derive(PartialEq, Eq, Deserialize, strum_macros::Display, Clone, Copy)]
-pub enum ProviderType {
-    HetznerProvider,
-    MockProvider,
+#[derive(Debug, Deserialize, Clone)]
+#[serde(tag = "type")]
+pub enum Provider {
+    HetznerCloud { apitoken: SecretString },
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Debug, PartialEq, Deserialize, Clone)]
+#[serde(tag = "type")]
+pub enum Record {
+    A {
+        name: String,
+    },
+    #[serde(rename = "AAAA")]
+    Aaaa {
+        name: String,
+        suffix: Option<Ipv6Addr>,
+    },
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct Zone {
-    pub id: String,
-    pub name: String,
-}
-
-#[derive(Deserialize, Clone)]
-pub struct DomainConfig {
-    pub provider: ProviderType,
-    pub apitoken: String,
     pub host: String,
-    pub zone: Zone,
+    pub id: String,
+    pub provider: Provider,
+    pub records: Vec<Record>,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct User {
     pub name: String,
-    pub password: String,
-    pub domains: Vec<DomainConfig>,
+    pub password: SecretString,
+    pub zones: Vec<Zone>,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
+#[serde(transparent)]
 pub struct Config {
     pub users: Vec<User>,
 }
 
-pub struct Providers {
-    pub hetzner_provider: Option<HetznerProvider>,
-    pub mock_provider: Option<MockProvider>,
+impl Config {
+    pub fn get_user(&self, username: &str, password: &str) -> Result<&User, String> {
+        let user_config = self.users.iter().find(|u| u.name == username);
+
+        if user_config.is_none() {
+            return Err(format!("Invalid user {}", username));
+        }
+
+        let user = user_config.unwrap();
+
+        if user.password.expose_secret() != password {
+            return Err(format!("Wrong password for user {}", user.name));
+        }
+
+        Ok(user)
+    }
+}
+
+impl User {
+    pub fn get_zone(&self, host: &str) -> Result<&Zone, String> {
+        let zone = self.zones.iter().find(|z| z.host == host);
+
+        match zone {
+            None => Err(format!("No zone for host {host} and user {}", self.name)),
+            Some(zone) => Ok(zone),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
+
+    const DATA: &str = r#"[
+    {
+        "name": "testuser",
+        "password": "testpassword",
+        "zones": [
+            {
+                "host": "sub.example.com",
+                "id": "example.com",
+                "provider": {
+                    "type": "HetznerCloud",
+                    "apitoken": "SECRETAPITOKEN"
+                },
+                "records": [
+                    {
+                        "type": "AAAA",
+                        "name": "sub.example.com",
+                        "suffix": "::a:b:c:d:e:f"
+                    }
+                ]
+            }
+        ]
+    }
+]"#;
 
     #[test]
-    fn parse_user() {
-        let data = r#"{
-            "name": "testtest",
-            "password": "testpassword",
-            "domains": [{
-                "provider": "HetznerProvider",
-                "apitoken": "testapitoken",
-                "host": "test.example.com",
-                "zone": {
-                    "name": "example.com",
-                    "id": "idexamplecom"
-                }
-            }]
-        }"#;
+    fn parse_config() {
+        let c: Config = serde_json::from_str(DATA).unwrap();
 
-        let u: User = serde_json::from_str(data).unwrap();
+        let u0 = &c.users[0];
 
-        assert_eq!(u.name, "testtest");
-        assert_eq!(u.password, "testpassword");
+        assert_eq!(u0.name, "testuser");
+        assert_eq!(u0.password.expose_secret(), "testpassword");
+        assert_eq!(u0.zones.len(), 1);
+
+        let u0z0 = &u0.zones[0];
+
+        assert_eq!(u0z0.id, "example.com");
+
+        match &u0z0.provider {
+            Provider::HetznerCloud { apitoken } => {
+                assert_eq!(apitoken.expose_secret(), "SECRETAPITOKEN".to_string());
+            }
+        }
+
+        assert_eq!(u0z0.records.len(), 1);
+
+        let u0z0r0 = &u0z0.records[0];
+
+        assert_eq!(
+            *u0z0r0,
+            Record::Aaaa {
+                name: "sub.example.com".to_string(),
+                suffix: Some(Ipv6Addr::from_str("::a:b:c:d:e:f").unwrap())
+            }
+        );
     }
 
-    // #[test]
-    // fn parse_config() {
-    //     let data = r#"[{
-    //         "name": "testtest",
-    //         "password": "testpassword",
-    //         "domains": [{
-    //             "provider": "HetznerProvider",
-    //             "apitoken": "testapitoken",
-    //             "host": "test.example.com",
-    //             "zone": {
-    //                 "name": "example.com",
-    //                 "id": "idexamplecom"
-    //             }
-    //         }]
-    //     }]"#;
+    #[test]
+    fn get_user() {
+        let c: Config = serde_json::from_str(DATA).unwrap();
 
-    //     let u: Config = serde_json::from_str(data).unwrap();
-
-    //     assert_eq!(u.users.len(), 1);
-
-    //     assert_eq!(u.users[0].name, "testtest");
-    //     assert_eq!(u.users[0].password, "testpassword");
-    // }
+        assert!(c.get_user("wronguser", "wrongpass").is_err());
+        assert!(c.get_user("testuser", "wrongpass").is_err());
+        assert!(c.get_user("testuser", "testpassword").is_ok());
+    }
 }

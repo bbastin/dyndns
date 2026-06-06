@@ -1,13 +1,41 @@
-{
-    "name": "exampleuser",
-    "password": "exampleuserpassword",
-    "domains": [{
-        "provider": "HetznerProvider",
-        "apitoken": "aiodQ83HFSDIj3iAHfOIAIAOWUR",
-        "host": "test.example.com",
-        "zone": {
-            "name": "example.com",
-            "id": "notused"
-        }
-    }]
-}
+[
+    {
+        "name": "exampleuser",
+        "password": "exampleuserpassword",
+        "zones": [
+            {
+                "host": "test.example.com",
+                "id": "example.com",
+                "provider": {
+                    "type": "HetznerCloud",
+                    "apitoken": "aiodQ83HFSDIj3iAHfOIAIAOWUR"
+                },
+                "records": [
+                    {
+                        "type": "A",
+                        "name": "test"
+                    },
+                    {
+                        "type": "AAAA",
+                        "name": "v6.test",
+                        "suffix": "::a:b:c:d:e:f"
+                    }
+                ]
+            },
+            {
+                "host": "test2.example.com",
+                "id": "example.com",
+                "provider": {
+                    "type": "HetznerCloud",
+                    "apitoken": "aiodQ83HFSDIj3iAHfOIAIAOWUR"
+                },
+                "records": [
+                    {
+                        "type": "A",
+                        "name": "test2"
+                    }
+                ]
+            }
+        ]
+    }
+]

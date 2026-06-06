@@ -37,16 +37,16 @@ Those entries have to match the entries in your **config.json**.
 
 ## Getting your Hetzner API key
 
-Open your DNS console under https://dns.hetzner.com. In the upper righthand corner,
-you can find your profile information.
-Click on **API tokens** and create a new API token.
-You have to only copy that token into the **config.json** file.
+Open Hetzner console under https://console.hetzner.com/.
+Choose the correct project where the DNS Zone resides.
+Under Security, you can create an API token.
+This token has to have write permissions in order to update the records.
+You have to copy that token into the **config.json** file.
 For this example, let's assume our API token is ```aiodQ83HFSDIj3iAHfOIAIAOWUR```
 
 You also have to make sure that the record you want to update already exists!
 Select the appropiate zone and create an A record with your current IPv4 address and/or
 an AAAA record with your current IPv6 address.
-You can either use the domain itself or a subdomain.
 
 ## Creating your **config.json**
 
@@ -57,33 +57,55 @@ Within the domains section, you can configure domains that you want to update.
 dyndns looks for **config.json** in the current working directory (usually the directory where the binary is stored),
 and if it does not find it there, it will look for it at **/etc/dyndns/config.json**.
 
-With the HetznerProvider, you set the value of *provider* to "HetznerProvider",
+With the HetznerProvider, you set the value of *provider* to "HetznerCloud",
 then enter your API token from the step before as *apitoken*.
-The *host* key holds the domain you want to update.
-Within the zone entry, you can enter the zone where the domain resides.
-If *host* is a subdomain, this will be the top most parent domain you control.
-If *host* is the domain itself, just enter the domain itself.
-The *id* has to be set to the ID of the zone;
-sadly, this is not being displayed within the DNS console,
-but you can use the API to find it:
-
-    curl https://dns.hetzner.com/api/v1/zones -H "Auth-API-Token: aiodQ83HFSDIj3iAHfOIAIAOWUR" | json_pp
+The *host* key is used for choosing the correct set of records to update.
+With *id*, you can enter the zone where the domain resides.
+The *id* has to be set to the root of the zone.
 
 Below you can find an example **config.json**.
 
-    {
-        "name": "exampleuser",
-        "password": "exampleuserpassword",
-        "domains": [{
-            "provider": "HetznerProvider",
-            "apitoken": "aiodQ83HFSDIj3iAHfOIAIAOWUR",
-            "host": "test.example.com",
-            "zone": {
-                "name": "example.com",
-                "id": "notused"
-            }
-        }]
-    }
+    [
+        {
+            "name": "exampleuser",
+            "password": "exampleuserpassword",
+            "zones": [
+                {
+                    "host": "test.example.com",
+                    "id": "example.com",
+                    "provider": {
+                        "type": "HetznerCloud",
+                        "apitoken": "aiodQ83HFSDIj3iAHfOIAIAOWUR"
+                    },
+                    "records": [
+                        {
+                            "type": "A",
+                            "name": "test"
+                        },
+                        {
+                            "type": "AAAA",
+                            "name": "v6.test",
+                            "suffix": "::a:b:c:d:e:f"
+                        }
+                    ]
+                },
+                {
+                    "host": "test2.example.com",
+                    "id": "example.com",
+                    "provider": {
+                        "type": "HetznerCloud",
+                        "apitoken": "aiodQ83HFSDIj3iAHfOIAIAOWUR"
+                    },
+                    "records": [
+                        {
+                            "type": "A",
+                            "name": "test2"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
 
 ## Building and starting the server
 

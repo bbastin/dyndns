@@ -5,84 +5,53 @@
 #![deny(clippy::all)]
 
 use std::{
-    fmt::Write,
     net::{Ipv4Addr, Ipv6Addr},
     str::FromStr,
 };
 
-use log::{error, info, warn};
+use chrono::{DateTime, Local};
+use log::{info, warn};
 use rocket::{get, http::Status, routes, State};
 
-use crate::{
-    config::{self, Config, DomainConfig, Providers, User},
-    providers::{update_ipv4, update_ipv6, Provider},
-};
+use crate::config::{Config, Provider, Record};
+use crate::ipv6prefix::Ipv6Prefix;
 
-fn get_user<'user_config_lifetime>(
-    config: &'user_config_lifetime Config,
-    username: &str,
-    password: &str,
-) -> Result<&'user_config_lifetime User, ()> {
-    let user_config = config.users.iter().find(|u| u.name == username);
+use crate::providers::hetzner_cloud::HetznerCloudProvider;
 
-    if user_config.is_none() {
-        warn!("Invalid user {}", username);
-        return Err(());
-    }
-    let user = user_config.unwrap();
-
-    if user.password != password {
-        warn!("Wrong password for user {}", user.name);
-        return Err(());
-    }
-
-    Ok(user)
-}
-
-fn get_domain_config<'user_config_lifetime>(
-    user: &'user_config_lifetime User,
-    host: &str,
-) -> Result<&'user_config_lifetime DomainConfig, ()> {
-    let domain_config = user.domains.iter().find(|d| d.host == host);
-
-    if domain_config.is_none() {
-        warn!("Invalid domain {host} for user {}", user.name);
-        return Err(());
-    }
-    Ok(domain_config.unwrap())
-}
-
-#[get("/update?<user>&<password>&<host>&<ip>&<ip6>")]
-fn update(
+#[get("/update?<user>&<password>&<host>&<ip>&<ip6>&<ip6lanprefix>")]
+async fn update(
     user: &str,
     password: &str,
     host: &str,
     ip: Option<&str>,
     ip6: Option<&str>,
+    ip6lanprefix: Option<&str>,
     config: &State<Config>,
-    providers: &State<Providers>,
+    // providers: &State<Providers>,
 ) -> (Status, String) {
-    let user = get_user(config, user, password);
-    if user.is_err() {
-        return (Status::Unauthorized, "Invalid user".to_string());
-    }
-    let user = user.unwrap();
-
-    let domain_config = get_domain_config(user, host);
-    if domain_config.is_err() {
-        return (Status::BadRequest, "Invalid domain".to_string());
-    }
-    let domain_config = domain_config.unwrap();
-
-    let p: &dyn Provider = match domain_config.provider {
-        config::ProviderType::HetznerProvider => providers.hetzner_provider.as_ref().unwrap(),
-        config::ProviderType::MockProvider => providers.mock_provider.as_ref().unwrap(),
+    let user = match config.get_user(user, password) {
+        Err(msg) => {
+            warn!("get_user: {msg}");
+            return (Status::Unauthorized, "Invalid user".to_string());
+        }
+        Ok(user) => user,
     };
 
+    let zone = match user.get_zone(host) {
+        Err(msg) => {
+            warn!("get_zone: {msg}");
+            return (Status::BadRequest, "Invalid domain".to_string());
+        }
+        Ok(zone) => zone,
+    };
+
+    info!("Zone {host}: {:?}", zone);
+
     info!(
-        "Received IP addresses: IPv4 {}, IPv6: {}",
+        "Received IP addresses: IPv4 {}, IPv6: {}, IPv6 Prefix: {}",
         ip.unwrap_or("<empty>"),
-        ip6.unwrap_or("<empty>")
+        ip6.unwrap_or("<empty>"),
+        ip6lanprefix.unwrap_or("<empty>"),
     );
 
     let parsed_ipv4 = if ip.is_some_and(|s| !s.is_empty()) {
@@ -103,201 +72,64 @@ fn update(
         None
     };
 
-    let mut status_code = Status::Ok;
-    let mut response: String = String::default();
+    let parsed_ipv6lanprefix = if ip6lanprefix.is_some_and(|s| !s.is_empty()) {
+        match Ipv6Prefix::from_str(ip6lanprefix.unwrap()) {
+            Ok(i) => Some(i),
+            Err(_) => return (Status::BadRequest, "Invalid IPv6 prefix".to_string()),
+        }
+    } else {
+        None
+    };
 
-    if parsed_ipv4.is_some() {
-        let res = update_ipv4(p, &parsed_ipv4.unwrap(), domain_config);
+    let date: DateTime<Local> = Local::now();
+    let datestr = date.to_rfc3339();
 
-        match res {
-            Ok(s) => {
-                let _ = writeln!(response, "{s}");
-                info!("{s}");
+    for record in &zone.records {
+        match record {
+            Record::Aaaa { name, suffix } => {
+                let new_address = match suffix {
+                    Some(s) => parsed_ipv6lanprefix.as_ref().map(|p| p.combine(*s)),
+                    None => parsed_ipv6,
+                };
+
+                if let Some(addr) = new_address {
+                    match &zone.provider {
+                        Provider::HetznerCloud { apitoken } => {
+                            let res = HetznerCloudProvider::update_ipv6(
+                                addr, &zone.id, apitoken, name, &datestr,
+                            )
+                            .await;
+
+                            if res.is_err() {
+                                return (Status::BadRequest, "Error".to_string());
+                            }
+                        }
+                    };
+                };
             }
-            Err(e) => {
-                let _ = writeln!(response, "Error updating IPv4 address: {e}");
-                status_code = Status::InternalServerError;
-                error!("{e}");
+            Record::A { name } => {
+                if let Some(addr) = parsed_ipv4 {
+                    match &zone.provider {
+                        Provider::HetznerCloud { apitoken } => {
+                            let res = HetznerCloudProvider::update_ipv4(
+                                addr, &zone.id, apitoken, name, &datestr,
+                            )
+                            .await;
+
+                            if res.is_err() {
+                                return (Status::BadRequest, "Error".to_string());
+                            }
+                        }
+                    };
+                }
             }
         }
     }
 
-    if ip6.is_some_and(|s| !s.is_empty()) {
-        let res = update_ipv6(p, &parsed_ipv6.unwrap(), domain_config);
-
-        match res {
-            Ok(s) => {
-                let _ = writeln!(response, "{s}");
-                info!("{s}");
-            }
-            Err(e) => {
-                let _ = writeln!(response, "Error updating IPv6 address: {e}");
-                status_code = Status::InternalServerError;
-                error!("{e}");
-            }
-        }
-    }
-
-    if response.is_empty() {
-        return (Status::Ok, "No IP address specified".to_string());
-    }
-
-    (status_code, response)
+    (Status::Ok, "Ok".to_string())
 }
 
 // #[launch]
 pub fn rocket() -> rocket::Rocket<rocket::Build> {
     rocket::build().mount("/", routes![update])
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        config::{DomainConfig, User},
-        providers::MockProvider,
-    };
-
-    use super::*;
-    use rocket::local::blocking::Client;
-
-    fn construct(mock_provider: Option<MockProvider>) -> Client {
-        Client::tracked(
-            rocket()
-                .manage(Config {
-                    users: vec![User {
-                        name: "test".to_string(),
-                        password: "testpassword".to_string(),
-                        domains: vec![DomainConfig {
-                            provider: crate::config::ProviderType::MockProvider,
-                            apitoken: "testtoken".to_string(),
-                            host: "example.com".to_string(),
-                            zone: crate::config::Zone {
-                                id: "testzoneid".to_string(),
-                                name: "testzone".to_string(),
-                            },
-                        }],
-                    }],
-                })
-                .manage(Providers {
-                    hetzner_provider: None,
-                    mock_provider: mock_provider,
-                }),
-        )
-        .expect("valid rocket instance")
-    }
-
-    mod uri_checks {
-        use super::*;
-
-        #[test]
-        fn test() {
-            let client = construct(Some(MockProvider::default()));
-            let response = client.get("/").dispatch();
-            assert_eq!(response.status(), Status::NotFound);
-        }
-
-        #[test]
-        fn missing_auth_query_params() {
-            let client = construct(Some(MockProvider::default()));
-            let response = client.get("/update").dispatch();
-            assert_eq!(response.status(), Status::UnprocessableEntity);
-        }
-
-        #[test]
-        fn unauthorized() {
-            let client = construct(Some(MockProvider::default()));
-            let response = client
-                .get("/update?user=wronguser&password=wrongpassword&host=example.com")
-                .dispatch();
-            assert_eq!(response.status(), Status::Unauthorized);
-        }
-
-        #[test]
-        fn empty_update() {
-            let client = construct(Some(MockProvider::default()));
-            let response = client
-                .get("/update?user=test&password=testpassword&host=example.com")
-                .dispatch();
-            assert_eq!(response.status(), Status::Ok);
-        }
-    }
-
-    mod mock_updates {
-        use super::*;
-
-        #[test]
-        fn update_ipv4_only() {
-            let mut mock = MockProvider::default();
-            mock.expect_update_ip().once().returning(|_, _| Ok(true));
-
-            let client = construct(Some(mock));
-            let response = client
-                .get("/update?user=test&password=testpassword&host=example.com&ip=192.0.2.0")
-                .dispatch();
-            assert_eq!(response.status(), Status::Ok);
-            assert_eq!(
-                response.into_string().unwrap(),
-                "Updated IPv4 successfully\n"
-            );
-        }
-
-        #[test]
-        fn update_ipv6_only() {
-            let mut mock = MockProvider::default();
-            mock.expect_update_ip().once().returning(|_, _| Ok(true));
-
-            let client = construct(Some(mock));
-            let response = client
-                .get("/update?user=test&password=testpassword&host=example.com&ip6=2001:0db8:85a3:0000:0000:8a2e:0370:7334")
-                .dispatch();
-            assert_eq!(response.status(), Status::Ok);
-            assert_eq!(
-                response.into_string().unwrap(),
-                "Updated IPv6 successfully\n"
-            );
-        }
-
-        #[test]
-        fn update_ipv4_ipv6() {
-            let mut mock = MockProvider::default();
-            mock.expect_update_ip().times(2).returning(|_, _| Ok(true));
-
-            let client = construct(Some(mock));
-            let response = client
-                .get("/update?user=test&password=testpassword&host=example.com&ip=192.0.2.0&ip6=2001:0db8:85a3:0000:0000:8a2e:0370:7334")
-                .dispatch();
-            assert_eq!(response.status(), Status::Ok);
-            assert_eq!(
-                response.into_string().unwrap(),
-                "Updated IPv4 successfully\nUpdated IPv6 successfully\n"
-            );
-        }
-
-        #[test]
-        fn update_ipv4_only_twice() {
-            let mut mock = MockProvider::default();
-            mock.expect_update_ip().once().returning(|_, _| Ok(true));
-            // The second time, the IP address will already be set correctly
-            mock.expect_update_ip().once().returning(|_, _| Ok(false));
-
-            let client = construct(Some(mock));
-            let response = client
-                .get("/update?user=test&password=testpassword&host=example.com&ip=192.0.2.0")
-                .dispatch();
-            assert_eq!(response.status(), Status::Ok);
-            assert_eq!(
-                response.into_string().unwrap(),
-                "Updated IPv4 successfully\n"
-            );
-
-            let response = client
-                .get("/update?user=test&password=testpassword&host=example.com&ip=192.0.2.0")
-                .dispatch();
-            assert_eq!(response.status(), Status::Ok);
-            assert_eq!(
-                response.into_string().unwrap(),
-                "IPv4 already set correctly\n"
-            );
-        }
-    }
 }

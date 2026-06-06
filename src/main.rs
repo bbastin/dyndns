@@ -11,11 +11,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use config::{Config, Providers};
-use providers::hetzner::HetznerProvider;
+use config::Config;
 use simple_logger::SimpleLogger;
 mod config;
-pub mod providers;
+mod ipv6prefix;
+mod providers;
 mod server;
 
 /// Find first path for the configuration where a file is present
@@ -31,19 +31,16 @@ fn find_config() -> Option<PathBuf> {
     None
 }
 
-// @TODO this should read in a config file containing multiple users
-// For now, this will not work, but all other functions expect a Vec of users,
-// therefore this will be packed up into an array of exactly one user.
-fn load_config(path: &Path) -> Result<config::User, Box<dyn Error>> {
+fn load_config(path: &Path) -> Result<Config, Box<dyn Error>> {
     let reader = BufReader::new(File::open(path)?);
 
     Ok(serde_json::from_reader(reader)?)
 }
 
 #[tokio::main]
-pub async fn main() -> Result<(), rocket::Error> {
+pub async fn main() -> Result<(), Box<rocket::Error>> {
     SimpleLogger::new()
-        .with_level(log::LevelFilter::Warn)
+        // .with_level(log::LevelFilter::Warn)
         .init()
         .unwrap();
 
@@ -53,20 +50,11 @@ pub async fn main() -> Result<(), rocket::Error> {
     };
 
     let config = match load_config(&path) {
-        Ok(user) => Config { users: vec![user] },
+        Ok(config) => config,
         Err(error) => panic!("Error reading config: {error}"),
     };
 
-    let providers = Providers {
-        hetzner_provider: Some(HetznerProvider::new()),
-        mock_provider: None,
-    };
-
-    server::rocket()
-        .manage(config)
-        .manage(providers)
-        .launch()
-        .await?;
+    server::rocket().manage(config).launch().await?;
 
     Ok(())
 }
