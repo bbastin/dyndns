@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-10-02
+
+### <!-- 2 -->Changed
+
+- Update dependencies
+
+## [0.5.0] - 2026-06-06
+
+### <!-- 2 -->Changed
+
+- Replace Hetzner DNS with Cloud and more
+
 ## [0.4.1] - 2026-03-13
 
 ### <!-- 5 -->Fixed
@@ -153,6 +165,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Clarified nginx configuration
 
+[0.5.1]: https://github.com/bbastin/dyndns/compare/v0.5.0..v0.5.1
+[0.5.0]: https://github.com/bbastin/dyndns/compare/v0.4.1..v0.5.0
 [0.4.1]: https://github.com/bbastin/dyndns/compare/v0.4.0..v0.4.1
 [0.4.0]: https://github.com/bbastin/dyndns/compare/v0.3.10..v0.4.0
 [0.3.10]: https://github.com/bbastin/dyndns/compare/v0.3.9..v0.3.10
