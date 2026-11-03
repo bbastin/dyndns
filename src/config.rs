@@ -10,6 +10,7 @@ use std::net::Ipv6Addr;
 #[serde(tag = "type")]
 pub enum Provider {
     HetznerCloud { apitoken: SecretString },
+    GandiLiveDns { apitoken: SecretString },
 }
 
 #[derive(Debug, PartialEq, Deserialize, Clone)]
@@ -120,6 +121,9 @@ mod tests {
 
         match &u0z0.provider {
             Provider::HetznerCloud { apitoken } => {
+                assert_eq!(apitoken.expose_secret(), "SECRETAPITOKEN".to_string());
+            }
+            Provider::GandiLiveDns { apitoken } => {
                 assert_eq!(apitoken.expose_secret(), "SECRETAPITOKEN".to_string());
             }
         }
