@@ -4,4 +4,7 @@
 
 /target
 config.json
-!example-config/config.json
+!example-config/config.json 
+
+# nix build output
+/result
