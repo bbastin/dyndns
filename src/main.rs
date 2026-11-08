@@ -4,13 +4,9 @@
 
 #![deny(clippy::all)]
 
-use std::{
-    error::Error,
-    fs::File,
-    io::BufReader,
-    path::{Path, PathBuf},
-};
+use std::{env, error::Error, fs::File, io::BufReader, path::{Path, PathBuf}};
 
+use log::{info};
 use config::Config;
 use simple_logger::SimpleLogger;
 mod config;
@@ -21,11 +17,23 @@ mod server;
 /// Find first path for the configuration where a file is present
 fn find_config() -> Option<PathBuf> {
     if Path::new("./config.json").is_file() {
+        info!("loading config from ./config.json");
         return Some(PathBuf::from("./config.json"));
     }
 
     if Path::new("/etc/dyndns/config.json").is_file() {
+        info!("loading config from /etc/dyndns/config.json");
         return Some(PathBuf::from("/etc/dyndns/config.json"));
+    }
+    
+    let maybe_config_file_path = env::var("DYNDNS_CONFIG_FILE_PATH");
+    if maybe_config_file_path.is_ok() {
+        let config_file_path = maybe_config_file_path.unwrap();
+        info!("found env config path DYNDNS_CONFIG_FILE_PATH=${config_file_path}");
+        if Path::new(config_file_path.as_str()).is_file()  {
+            info!("loading config from ${config_file_path}");
+            return Some(PathBuf::from(config_file_path));
+        }
     }
 
     None
