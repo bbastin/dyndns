@@ -5,3 +5,4 @@
 #![deny(clippy::all)]
 
 pub mod hetzner_cloud;
+pub mod gandi_live_dns;
