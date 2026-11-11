@@ -17,6 +17,7 @@ use crate::config::{Config, Provider, Record};
 use crate::ipv6prefix::Ipv6Prefix;
 
 use crate::providers::hetzner_cloud::HetznerCloudProvider;
+use crate::providers::gandi_live_dns::GandiLiveDnsProvider;
 
 #[get("/update?<user>&<password>&<host>&<ip>&<ip6>&<ip6lanprefix>")]
 async fn update(
@@ -104,6 +105,16 @@ async fn update(
                                 return (Status::BadRequest, "Error".to_string());
                             }
                         }
+                        Provider::GandiLiveDns { apitoken } => {
+                            let res = GandiLiveDnsProvider::update_ipv6(
+                                addr, &zone.id, apitoken, name, &datestr,
+                            )
+                                .await;
+
+                            if res.is_err() {
+                                return (Status::BadRequest, "Error".to_string());
+                            }
+                        }
                     };
                 };
             }
@@ -112,6 +123,16 @@ async fn update(
                     match &zone.provider {
                         Provider::HetznerCloud { apitoken } => {
                             let res = HetznerCloudProvider::update_ipv4(
+                                addr, &zone.id, apitoken, name, &datestr,
+                            )
+                            .await;
+
+                            if res.is_err() {
+                                return (Status::BadRequest, "Error".to_string());
+                            }
+                        }
+                        Provider::GandiLiveDns { apitoken } => {
+                            let res = GandiLiveDnsProvider::update_ipv4(
                                 addr, &zone.id, apitoken, name, &datestr,
                             )
                             .await;
